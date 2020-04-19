@@ -46,7 +46,7 @@ function middleware(config, paths) {
   router.post('/duo/sign', (req, res) => {
     const username = req.body.username;
     if (isString(username)) {
-      const request = duo.sign_request(ikey, skey, akey, username);
+      const request = duo.sign_request(config.ikey, config.skey, config.akey, username);
       res.json({
         host: host,
         request: request
@@ -67,7 +67,7 @@ function middleware(config, paths) {
   router.post('/duo/verify', (req, res) => {
     const response = req.body.response;
     if (isString(response)) {
-      const username = duo.verify_response(ikey, skey, akey, response);
+      const username = duo.verify_response(config.ikey, config.skey, config.akey, response);
       if (username) {
         if (isObject(req.session)) {
           req.session.duo = { username };
