@@ -48,8 +48,11 @@ function middleware(config, paths) {
     if (isString(username)) {
       const request = duo.sign_request(config.ikey, config.skey, config.akey, username);
       res.json({
-        host: config.host,
-        request: request
+        status: 'success',
+        data: {
+          host: config.host,
+          request: request
+        }
       });
     } else {
       res.status(BAD_REQUEST);
