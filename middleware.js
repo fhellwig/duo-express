@@ -48,7 +48,7 @@ function middleware(config, paths) {
     if (isString(username)) {
       const request = duo.sign_request(config.ikey, config.skey, config.akey, username);
       res.json({
-        host: host,
+        host: config.host,
         request: request
       });
     } else {
