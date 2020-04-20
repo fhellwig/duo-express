@@ -27,7 +27,6 @@ const express = require('express');
 
 const NO_CONTENT = 204;
 const BAD_REQUEST = 400;
-const UNAUTHORIZED = 401;
 
 function middleware(config, paths) {
   checkConfig(config);
@@ -38,7 +37,6 @@ function middleware(config, paths) {
   router.use(express.urlencoded({ extended: true }));
 
   router.post('/duo', (req, res) => {
-    const next = (req.query && req.query.next) || '/';
     const username = req.body.username;
     if (isString(username)) {
       const request = duo.sign_request(config.ikey, config.skey, config.akey, username);
@@ -46,7 +44,7 @@ function middleware(config, paths) {
         host: config.host,
         sig_request: request,
         post_argument: 'response',
-        post_action: '/duo/response?next=' + next
+        post_action: createActionUrl(req)
       });
     } else {
       res.status(BAD_REQUEST);
@@ -56,15 +54,19 @@ function middleware(config, paths) {
     }
   });
 
-  router.post('/duo/response', (req, res) => {
+  router.post('/duo/response/:redirect?', (req, res) => {
     const username = duo.verify_response(config.ikey, config.skey, config.akey, req.body.response);
     if (username && isObject(req.session)) {
       req.session.duo = { username };
     }
-    res.redirect(req.query.next);
+    if (isString(req.params.redirect)) {
+      res.redirect(req.params.redirect);
+    } else {
+      res.sendStatus(204);
+    }
   });
 
-  router.get('/duo', async (req, res) => {
+  router.get('/duo', (req, res) => {
     if (isObject(req.session)) {
       res.json(req.session.duo || null);
     } else {
@@ -106,6 +108,18 @@ function isObject(obj) {
 
 function isString(str, minLength = 1) {
   return typeof str === 'string' && str.length >= minLength;
+}
+
+function createActionUrl(req) {
+  const buf = [req.originalUrl];
+  if (req.originalUrl.slice(-1) !== '/') {
+    buf.push('/');
+  }
+  buf.push('response/');
+  if (isString(req.body.redirect)) {
+    buf.push(encodeURIComponent(req.body.redirect));
+  }
+  return buf.join('');
 }
 
 module.exports = middleware;
