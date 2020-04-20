@@ -66,7 +66,7 @@ The response is a an object that you can pass directly to `Duo.init()`. It is sh
   host: config.host,
   sig_request: '<the signed duo request>',
   post_argument: 'response',
-  post_action: '/duo/response/<redirect>'
+  post_action: '/duo/response?redirect=<redirect>'
 }
 ```
 

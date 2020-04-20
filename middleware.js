@@ -27,6 +27,7 @@ const express = require('express');
 
 const NO_CONTENT = 204;
 const BAD_REQUEST = 400;
+const UNAUTHORIZED = 401;
 
 function middleware(config, paths) {
   checkConfig(config);
@@ -54,15 +55,19 @@ function middleware(config, paths) {
     }
   });
 
-  router.post('/duo/response/:redirect?', (req, res) => {
+  router.post('/duo/response', (req, res) => {
     const username = duo.verify_response(config.ikey, config.skey, config.akey, req.body.response);
-    if (username && isObject(req.session)) {
-      req.session.duo = { username };
-    }
-    if (isString(req.params.redirect)) {
-      res.redirect(decodeURIComponent(req.params.redirect));
+    if (username) {
+      if (isObject(req.session)) {
+        req.session.duo = { username };
+      }
+      if (isString(req.query.redirect)) {
+        res.redirect(req.query.redirect);
+      } else {
+        res.sendStatus(NO_CONTENT);
+      }
     } else {
-      res.sendStatus(204);
+      res.sendStatus(UNAUTHORIZED);
     }
   });
 
@@ -115,9 +120,10 @@ function createActionUrl(req) {
   if (req.originalUrl.slice(-1) !== '/') {
     buf.push('/');
   }
-  buf.push('response/');
+  buf.push('response');
   if (isString(req.body.redirect)) {
-    buf.push(encodeURIComponent(req.body.redirect));
+    buf.push('?redirect=');
+    buf.push(req.body.redirect);
   }
   return buf.join('');
 }
