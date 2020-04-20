@@ -60,7 +60,7 @@ function middleware(config, paths) {
       req.session.duo = { username };
     }
     if (isString(req.params.redirect)) {
-      res.redirect(req.params.redirect);
+      res.redirect(decodeURIComponent(req.params.redirect));
     } else {
       res.sendStatus(204);
     }
