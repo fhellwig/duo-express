@@ -21,10 +21,8 @@ npm install --save duo-express
 ```javascript
 const duo = require('duo-express');
 const app = express();
-app.use(duo(duoConfig, paths)); // paths is an optional argument
+app.use(duo(duoConfig));
 ```
-
-The optional `paths` argument is a set of paths you want to protect (e.g., `['/api']`). If provided, all requests are checked. If a request path begins with a value specified in the `paths` array and the `/duo/verify` endpoint has not yet been called, then a 401 (Unauthorized) response is returned. As mentioned in the prerequisites, session middleware must be installed for this to work.
 
 ## Configuration
 
@@ -43,78 +41,50 @@ const duoConfig = {
 
 This middleware module provides three endpoints that you can call from your web application.
 
-### `POST /duo/sign`
+### `POST /duo[?next=<path>]`
 
-This endpoint signs the username using the three Duo keys and returns the request expected by the `Duo.init` method.
+This endpoint signs the username using the three Duo keys and returns the an object you can pass directly to the `Duo.init` method. The optional `next` query parameter is the path to which the client is redirected on a successful Duo verification. If it is omitted, then the application is redirected to `/` on success.
 
 ```
-POST /duo/sign
+POST /duo
 
 {
   username: 'joe@example.com'
 }
 ```
 
-The response is a [JSend](https://github.com/omniti-labs/jsend) object:
+The response is a an object that you can pass directly to `Duo.init`. It is shown here for reference but you should not modify any of the properties.
 
 ```javascript
 {
-  status: 'success',
-  data: {
-    host: 'api-XXXXXXXX.duosecurity.com',
-    request: 'the request that is passed to the duo web init call'
-  }
+  host: config.host,
+  sig_request: '<the signed duo request>',
+  post_argument: 'response',
+  post_action: '/duo/response?next=<path>'
 }
 ```
 
-The hostname is returned so you need only to maintain in one location and not separately in your web app and your server. Having it in the response is a handy way to get it and use it as the `host` parameter to `Duo.init`.
-
-### `POST /duo/verify`
-
-After you display the iFrame and Duo returns a response, the response must be verified.
-
-```
-POST /duo/verify
-
-{
-  response: 'the response from the Duo web iFrame'
-}
-```
-
-The response is a [JSend](https://github.com/omniti-labs/jsend) object:
+The `post_action` response path is implemented by this middleware and is called automatically by Duo. On success, a POST to this path will set the `duo` object in the session:
 
 ```javascript
-{
-  status: 'success',
-  data: {
-    username: 'joe@example.com'
-  }
+req.session.duo = {
+  username: 'joe@example.com'
 }
 ```
-
-If you have session middleware installed (as evidenced by `req.session` being an object), then a `duo` object is added to the session with the `username` property.
 
 ### `GET /duo`
 
-A quick way to check if Duo verification has taken place. The response is a [JSend](https://github.com/omniti-labs/jsend) object:
+A quick way to check if Duo verification has taken place. The response is the `duo` session object or `null` if no Duo session has been set.
 
 ```javascript
 {
-  status: 'success',
-  data: {
-    username: 'joe@example.com'
-  }
-}
-
-// -or-
-
-{
-  status: 'success',
-  data: null
+  username: 'joe@example.com'
 }
 ```
 
-Again, this will only work if you have session middleware installed.
+### `DELETE /duo`
+
+Removes the `duo` object from the session (i.e., performs a logout).
 
 ## License
 

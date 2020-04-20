@@ -25,6 +25,7 @@
 const duo = require('@duosecurity/duo_web');
 const express = require('express');
 
+const NO_CONTENT = 204;
 const BAD_REQUEST = 400;
 const UNAUTHORIZED = 401;
 
@@ -34,93 +35,49 @@ function middleware(config, paths) {
   const router = new express.Router();
 
   router.use(express.json());
+  router.use(express.urlencoded({ extended: true }));
 
-  router.get('/duo', async (req, res) => {
-    const session = getDuoSession(req);
-    res.json({
-      status: 'success',
-      data: session
-    });
-  });
-
-  router.post('/duo/sign', (req, res) => {
+  router.post('/duo', (req, res) => {
+    const next = (req.query && req.query.next) || '/';
     const username = req.body.username;
     if (isString(username)) {
       const request = duo.sign_request(config.ikey, config.skey, config.akey, username);
       res.json({
-        status: 'success',
-        data: {
-          host: config.host,
-          request: request
-        }
+        host: config.host,
+        sig_request: request,
+        post_argument: 'response',
+        post_action: '/duo/response?next=' + next
       });
     } else {
       res.status(BAD_REQUEST);
       res.json({
-        status: 'fail',
-        code: BAD_REQUEST,
-        data: {
-          username: 'Expected a string for this property'
-        },
         message: 'Expected a username string property in request'
       });
     }
   });
 
-  router.post('/duo/verify', (req, res) => {
-    const response = req.body.response;
-    if (isString(response)) {
-      const username = duo.verify_response(config.ikey, config.skey, config.akey, response);
-      if (username) {
-        if (isObject(req.session)) {
-          req.session.duo = { username };
-        }
-        res.json({
-          status: 'success',
-          data: {
-            username
-          }
-        });
-      } else {
-        res.status(UNAUTHORIZED);
-        res.json({
-          status: 'error',
-          code: UNAUTHORIZED,
-          message: 'The Duo response could not be verified'
-        });
-      }
+  router.post('/duo/response', (req, res) => {
+    const username = duo.verify_response(config.ikey, config.skey, config.akey, req.body.response);
+    if (username && isObject(req.session)) {
+      req.session.duo = { username };
+    }
+    res.redirect(req.query.next);
+  });
+
+  router.get('/duo', async (req, res) => {
+    if (isObject(req.session)) {
+      res.json(req.session.duo || null);
     } else {
-      res.status(BAD_REQUEST);
-      res.json({
-        status: 'fail',
-        code: BAD_REQUEST,
-        data: {
-          response: 'Expected a string for this property'
-        },
-        message: 'Expected a Duo response string property in request'
-      });
+      res.json(null);
     }
   });
 
-  if (Array.isArray(paths)) {
-    router.use('*', (req, res, next) => {
-      if (paths.some((p) => req.baseUrl.startsWith(p))) {
-        const session = getDuoSession(req);
-        if (session) {
-          next();
-        } else {
-          res.status(UNAUTHORIZED);
-          res.json({
-            status: 'error',
-            code: UNAUTHORIZED,
-            message: 'The user is not authorized for ' + req.baseUrl
-          });
-        }
-      } else {
-        next();
-      }
-    });
-  }
+  router.delete('/duo', (req, res) => {
+    if (isObject(req.session)) {
+      delete req.session.duo;
+    }
+    res.sendStatus(NO_CONTENT);
+  });
 
   return router;
 }
@@ -141,13 +98,6 @@ function checkConfig(config) {
   if (!isString(config.host)) {
     throw new Error('Expected a string for the config.host property');
   }
-}
-
-function getDuoSession(req) {
-  if (!isObject(req.session)) {
-    throw new Error('This middleware requires a session to work');
-  }
-  return req.session.duo || null;
 }
 
 function isObject(obj) {
