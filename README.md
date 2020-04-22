@@ -8,11 +8,11 @@ From the client side, you need to create the Duo signature request and then veri
 
 For additional details, please review the [Duo Web](https://duo.com/docs/duoweb) documentation.
 
-For the companian React module (providing a context to access this middleware), please see the [duo-express-react](https://www.npmjs.com/package/duo-express-react) package.
+For the companion React module (providing a context to access this middleware), please see the [duo-express-react](https://www.npmjs.com/package/duo-express-react) package. If you use these packages together, you will not need to write a lot of code as the calls to this middleware are handled for you.
 
 ## Prerequisites
 
-This module requires [express](https://www.npmjs.com/package/express) and [express-session](https://www.npmjs.com/package/express-session) packages to be installed as peer dependencies. You will find a sample session configuration at the end of this README file.
+This module requires the [express](https://www.npmjs.com/package/express) and [express-session](https://www.npmjs.com/package/express-session) packages to be installed as peer dependencies. You will find a sample session configuration at the end of this README file.
 
 ## Installation
 
