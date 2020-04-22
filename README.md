@@ -50,6 +50,7 @@ This middleware module provides three endpoints that you can call from your web 
 This endpoint signs the username using the three Duo keys and returns an object you can pass directly to the `Duo.init()` method. The `username` request property is required.
 
 The optional `redirect` request property is the path to which the client is redirected on a successful Duo verification. If you do not specify the `redirect` property, then a `204` status is returned from the verification action and you will be left on the page with your Duo iframe. This may be useful for debugging but probably not what you want in production.
+
 ```
 POST /duo
 
@@ -75,7 +76,7 @@ The `post_action` response path is implemented by this middleware and is called 
 ```javascript
 req.session.duo = {
   username: 'joe@example.com'
-}
+};
 ```
 
 ### `GET /duo`
@@ -84,7 +85,7 @@ A quick way to check if Duo verification has taken place. The response is the `d
 
 ```javascript
 {
-  username: 'joe@example.com'
+  username: 'joe@example.com';
 }
 ```
 
@@ -105,6 +106,50 @@ The flow of this middleware is as follows (the "you" in these steps refers to yo
 7. The middleware sets the `duo` object in the session and redirects to your specified application page.
 
 In the last step, the redirect URI need not be a page in your application. It could be to another API endpoint that performs additional user lookup and adds user information to the session before redirecting the user to a page in the application.
+
+## Example Session
+
+Here is an example of how to configure an [express-session](https://www.npmjs.com/package/express-session) for use with this module.
+
+Create a file called `session.js` as follows:
+
+```javascript
+const session = require('express-session');
+const MemoryStore = require('memorystore')(session);
+
+const SESSION_NAME = 'app-session';
+const SESSION_SECRET = '918dffb2-3415-4aa0-adaa-f7cf08f777dc';
+const ONE_HOUR = 60 * 60 * 1000;
+const MAX_AGE = ONE_HOUR;
+const CHECK_PERIOD = ONE_HOUR;
+
+function middleware() {
+  return session({
+    name: SESSION_NAME,
+    resave: false,
+    rolling: true,
+    saveUninitialized: false,
+    secret: SESSION_SECRET,
+    cookie: {
+      maxAge: MAX_AGE,
+      secure: 'auto'
+    },
+    store: new MemoryStore({
+      checkPeriod: CHECK_PERIOD
+    })
+  });
+}
+
+module.exports = middleware;
+```
+
+Bind your session middleware using the `app.use()` function.
+
+```javascript
+const session = require('./session');
+
+app.use(session());
+```
 
 ## License
 
