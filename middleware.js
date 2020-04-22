@@ -29,7 +29,7 @@ const NO_CONTENT = 204;
 const BAD_REQUEST = 400;
 const UNAUTHORIZED = 401;
 
-function middleware(config, paths) {
+function middleware(config) {
   checkConfig(config);
 
   const router = new express.Router();
@@ -38,6 +38,7 @@ function middleware(config, paths) {
   router.use(express.urlencoded({ extended: true }));
 
   router.post('/duo', (req, res) => {
+    checkSession(req);
     const username = req.body.username;
     if (isString(username)) {
       const request = duo.sign_request(config.ikey, config.skey, config.akey, username);
@@ -50,39 +51,35 @@ function middleware(config, paths) {
     } else {
       res.status(BAD_REQUEST);
       res.json({
-        message: 'Expected a username string property in request'
+        message: 'Expected a username string property in request.'
       });
     }
   });
 
   router.post('/duo/response', (req, res) => {
+    checkSession(req);
     const username = duo.verify_response(config.ikey, config.skey, config.akey, req.body.response);
     if (username) {
-      if (isObject(req.session)) {
-        req.session.duo = { username };
-      }
+      req.session.duo = { username };
       if (isString(req.query.redirect)) {
         res.redirect(req.query.redirect);
       } else {
         res.sendStatus(NO_CONTENT);
       }
     } else {
+      req.session.duo = null;
       res.sendStatus(UNAUTHORIZED);
     }
   });
 
   router.get('/duo', (req, res) => {
-    if (isObject(req.session)) {
-      res.json(req.session.duo || null);
-    } else {
-      res.json(null);
-    }
+    checkSession(req);
+    res.json(req.session.duo || null);
   });
 
   router.delete('/duo', (req, res) => {
-    if (isObject(req.session)) {
-      delete req.session.duo;
-    }
+    checkSession(req);
+    delete req.session.duo;
     res.sendStatus(NO_CONTENT);
   });
 
@@ -91,19 +88,27 @@ function middleware(config, paths) {
 
 function checkConfig(config) {
   if (!isObject(config)) {
-    throw new Error('Expected a config object');
+    throw new Error('Expected a config object.');
   }
   if (!isString(config.ikey)) {
-    throw new Error('Expected a string for the config.ikey property');
+    throw new Error('Expected a string for the config.ikey property.');
   }
   if (!isString(config.skey)) {
-    throw new Error('Expected a string for the config.skey property');
+    throw new Error('Expected a string for the config.skey property.');
   }
   if (!isString(config.akey)) {
-    throw new Error('Expected a string for the config.akey property');
+    throw new Error('Expected a string for the config.akey property.');
   }
   if (!isString(config.host)) {
-    throw new Error('Expected a string for the config.host property');
+    throw new Error('Expected a string for the config.host property.');
+  }
+}
+
+function checkSession(req) {
+  if (!isObject(req.session)) {
+    throw new Error(
+      'No session object found in request. You must create a session middleware using express-session.'
+    );
   }
 }
 
