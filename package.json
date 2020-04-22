@@ -1,8 +1,8 @@
 {
   "name": "duo-express",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Express middleware for handling Duo sign and verify actions",
-  "main": "middleware.js",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -26,6 +26,8 @@
   },
   "peerDependencies": {
     "express": "^4.17.1",
-    "express-session": "^1.17.1"
+    "express-session": "^1.17.1",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1"
   }
 }
