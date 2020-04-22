@@ -1,8 +1,8 @@
 {
   "name": "duo-express",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Express middleware for handling Duo sign and verify actions",
-  "main": "index.js",
+  "main": "middleware.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -21,13 +21,10 @@
   },
   "homepage": "https://github.com/fhellwig/duo-express#readme",
   "dependencies": {
-    "@duosecurity/duo_web": "^1.0.5",
-    "axios": "^0.19.2"
+    "@duosecurity/duo_web": "^1.0.5"
   },
   "peerDependencies": {
     "express": "^4.17.1",
-    "express-session": "^1.17.1",
-    "react": "^16.13.1",
-    "react-dom": "^16.13.1"
+    "express-session": "^1.17.1"
   }
 }
