@@ -45,7 +45,7 @@ A best practice is not to store the keys in your application's code base but in 
 
 ## Endpoints
 
-This middleware module provides three endpoints that you can call from your web application.
+This middleware module provides four endpoints, three of which are called from your web application.
 
 ### `POST /duo`
 
@@ -72,6 +72,8 @@ The response is a an object that you can pass directly to `Duo.init()`. It is sh
   post_action: '/duo/response?redirect=<redirect>'
 }
 ```
+
+### `POST /duo/response`
 
 The `post_action` response path is implemented by this middleware and is called automatically by Duo. On success, a POST to this path will set the `duo` object in the session:
 
