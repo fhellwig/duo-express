@@ -1,6 +1,6 @@
 {
   "name": "duo-express",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Express middleware for handling Duo sign and verify actions",
   "main": "middleware.js",
   "scripts": {
@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/fhellwig/duo-express#readme",
   "dependencies": {
+    "@duosecurity/duo_api": "^1.2.1",
     "@duosecurity/duo_web": "^1.0.5"
   },
   "peerDependencies": {

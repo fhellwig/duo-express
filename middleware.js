@@ -22,7 +22,8 @@
  * SOFTWARE.
  */
 
-const duo = require('@duosecurity/duo_web');
+const duoApi = require('@duosecurity/duo_api');
+const duoWeb = require('@duosecurity/duo_web');
 const express = require('express');
 
 const NO_CONTENT = 204;
@@ -32,6 +33,7 @@ const UNAUTHORIZED = 401;
 function middleware(config) {
   checkConfig(config);
 
+  const client = new duoApi.Client(config.ikey, config.skey, config.host);
   const router = new express.Router();
 
   router.use(express.json());
@@ -41,24 +43,35 @@ function middleware(config) {
     checkSession(req);
     const username = req.body.username;
     if (isString(username)) {
-      const request = duo.sign_request(config.ikey, config.skey, config.akey, username);
-      res.json({
-        host: config.host,
-        sig_request: request,
-        post_argument: 'response',
-        post_action: createActionUrl(req)
-      });
+      preauth(username)
+        .then(() => {
+          const request = duoWeb.sign_request(config.ikey, config.skey, config.akey, username);
+          res.json({
+            host: config.host,
+            sig_request: request,
+            post_argument: 'response',
+            post_action: createActionUrl(req)
+          });
+        })
+        .catch((err) => {
+          res.status(UNAUTHORIZED);
+          res.json({ message: err.message });
+        });
     } else {
       res.status(BAD_REQUEST);
-      res.json({
-        message: 'Expected a username string property in request.'
-      });
+      res.json({ message: 'Expected a username string property in request.' });
     }
   });
 
+
   router.post('/duo/response', (req, res) => {
     checkSession(req);
-    const username = duo.verify_response(config.ikey, config.skey, config.akey, req.body.response);
+    const username = duoWeb.verify_response(
+      config.ikey,
+      config.skey,
+      config.akey,
+      req.body.response
+    );
     if (username) {
       req.session.duo = { username };
       if (isString(req.query.redirect)) {
@@ -82,6 +95,22 @@ function middleware(config) {
     delete req.session.duo;
     res.sendStatus(NO_CONTENT);
   });
+
+  async function preauth(username) {
+    return new Promise((resolve, reject) => {
+      client.jsonApiCall('POST', '/auth/v2/preauth', { username }, (res) => {
+        if (res.stat === 'OK') {
+          if (res.response.result === 'deny') {
+            reject(new Error(res.response.status_msg));
+          } else {
+            resolve();
+          }
+        } else {
+          reject(new Error(res.message));
+        }
+      });
+    });
+  }
 
   return router;
 }
