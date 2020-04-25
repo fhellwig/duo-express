@@ -47,7 +47,7 @@ function middleware(config) {
   router.use(express.json());
   router.use(express.urlencoded({ extended: true }));
 
-  router.post('/duo', (req, res) => {
+  router.post('/duo', (req, res, next) => {
     checkSession(req);
     const username = req.body.username;
     if (!isString(username)) {
