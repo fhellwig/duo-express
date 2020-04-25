@@ -99,7 +99,8 @@ function middleware(config) {
 
   // Error handler.
   router.use((err, req, res, next) => {
-    if (!res.headersSend && err instanceof HttpError) {
+    if (!res.headersSent && err instanceof HttpError) {
+      res.status(err.code);
       res.json({
         status: 'error',
         code: err.code,
