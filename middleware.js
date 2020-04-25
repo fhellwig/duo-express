@@ -47,20 +47,23 @@ function middleware(config) {
   router.use(express.json());
   router.use(express.urlencoded({ extended: true }));
 
-  router.post('/duo', async (req, res) => {
+  router.post('/duo', (req, res) => {
     checkSession(req);
     const username = req.body.username;
     if (!isString(username)) {
       throw new HttpError(BAD_REQUEST, 'Expected a username string property in request.');
     }
-    await preauth(username);
-    const request = duoWeb.sign_request(config.ikey, config.skey, config.akey, username);
-    res.json({
-      host: config.host,
-      sig_request: request,
-      post_argument: 'response',
-      post_action: createActionUrl(req)
-    });
+    preauth(username)
+      .then(() => {
+        const request = duoWeb.sign_request(config.ikey, config.skey, config.akey, username);
+        res.json({
+          host: config.host,
+          sig_request: request,
+          post_argument: 'response',
+          post_action: createActionUrl(req)
+        });
+      })
+      .catch(next);
   });
 
   router.post('/duo/response', (req, res) => {
@@ -108,7 +111,7 @@ function middleware(config) {
   });
 
   // Perform a Duo preautherization
-  async function preauth(username) {
+  function preauth(username) {
     return new Promise((resolve, reject) => {
       client.jsonApiCall('POST', '/auth/v2/preauth', { username }, (res) => {
         if (res.stat === 'OK') {
