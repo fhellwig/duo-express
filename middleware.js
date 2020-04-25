@@ -29,6 +29,14 @@ const express = require('express');
 const NO_CONTENT = 204;
 const BAD_REQUEST = 400;
 const UNAUTHORIZED = 401;
+const INTERNAL_SERVER_ERROR = 500;
+
+class HttpError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+  }
+}
 
 function middleware(config) {
   checkConfig(config);
@@ -39,30 +47,21 @@ function middleware(config) {
   router.use(express.json());
   router.use(express.urlencoded({ extended: true }));
 
-  router.post('/duo', (req, res) => {
+  router.post('/duo', async (req, res) => {
     checkSession(req);
     const username = req.body.username;
-    if (isString(username)) {
-      preauth(username)
-        .then(() => {
-          const request = duoWeb.sign_request(config.ikey, config.skey, config.akey, username);
-          res.json({
-            host: config.host,
-            sig_request: request,
-            post_argument: 'response',
-            post_action: createActionUrl(req)
-          });
-        })
-        .catch((err) => {
-          res.status(UNAUTHORIZED);
-          res.json({ message: err.message });
-        });
-    } else {
-      res.status(BAD_REQUEST);
-      res.json({ message: 'Expected a username string property in request.' });
+    if (!isString(username)) {
+      throw new HttpError(BAD_REQUEST, 'Expected a username string property in request.');
     }
+    await preauth(username);
+    const request = duoWeb.sign_request(config.ikey, config.skey, config.akey, username);
+    res.json({
+      host: config.host,
+      sig_request: request,
+      post_argument: 'response',
+      post_action: createActionUrl(req)
+    });
   });
-
 
   router.post('/duo/response', (req, res) => {
     checkSession(req);
@@ -72,16 +71,15 @@ function middleware(config) {
       config.akey,
       req.body.response
     );
-    if (username) {
-      req.session.duo = { username };
-      if (isString(req.query.redirect)) {
-        res.redirect(req.query.redirect);
-      } else {
-        res.sendStatus(NO_CONTENT);
-      }
-    } else {
+    if (!username) {
       req.session.duo = null;
-      res.sendStatus(UNAUTHORIZED);
+      throw new HttpError(UNAUTHORIZED, 'The response could not be verified.');
+    }
+    req.session.duo = { username };
+    if (isString(req.query.redirect)) {
+      res.redirect(req.query.redirect);
+    } else {
+      res.sendStatus(NO_CONTENT);
     }
   });
 
@@ -96,17 +94,31 @@ function middleware(config) {
     res.sendStatus(NO_CONTENT);
   });
 
+  // Error handler.
+  router.use((err, req, res, next) => {
+    if (!res.headersSend && err instanceof HttpError) {
+      res.json({
+        status: 'error',
+        code: err.code,
+        message: err.message
+      });
+    } else {
+      next(err);
+    }
+  });
+
+  // Perform a Duo preautherization
   async function preauth(username) {
     return new Promise((resolve, reject) => {
       client.jsonApiCall('POST', '/auth/v2/preauth', { username }, (res) => {
         if (res.stat === 'OK') {
           if (res.response.result === 'deny') {
-            reject(new Error(res.response.status_msg));
+            reject(new HttpError(UNAUTHORIZED, res.response.status_msg));
           } else {
             resolve();
           }
         } else {
-          reject(new Error(res.message));
+          reject(new HttpError(BAD_REQUEST, res.message));
         }
       });
     });
@@ -117,25 +129,26 @@ function middleware(config) {
 
 function checkConfig(config) {
   if (!isObject(config)) {
-    throw new Error('Expected a config object.');
+    throw new HttpError(BAD_REQUEST, 'Expected a config object.');
   }
   if (!isString(config.ikey)) {
-    throw new Error('Expected a string for the config.ikey property.');
+    throw new HttpError(BAD_REQUEST, 'Expected a string for the config.ikey property.');
   }
   if (!isString(config.skey)) {
-    throw new Error('Expected a string for the config.skey property.');
+    throw new HttpError(BAD_REQUEST, 'Expected a string for the config.skey property.');
   }
   if (!isString(config.akey)) {
-    throw new Error('Expected a string for the config.akey property.');
+    throw new HttpError(BAD_REQUEST, 'Expected a string for the config.akey property.');
   }
   if (!isString(config.host)) {
-    throw new Error('Expected a string for the config.host property.');
+    throw new HttpError(BAD_REQUEST, 'Expected a string for the config.host property.');
   }
 }
 
 function checkSession(req) {
   if (!isObject(req.session)) {
-    throw new Error(
+    throw new HttpError(
+      INTERNAL_SERVER_ERROR,
       'No session object found in request. You must create a session middleware using express-session.'
     );
   }
