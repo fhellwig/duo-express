@@ -53,7 +53,7 @@ function middleware(config) {
     if (!isString(username)) {
       throw new HttpError(BAD_REQUEST, 'Expected a username string property in request.');
     }
-    preauth(username)
+    preauth(username, req.query.nopreauth !== undefined)
       .then(() => {
         const request = duoWeb.sign_request(config.ikey, config.skey, config.akey, username);
         res.json({
@@ -111,8 +111,11 @@ function middleware(config) {
     }
   });
 
-  // Perform a Duo preautherization
-  function preauth(username) {
+  // Perform a Duo preautherization.
+  function preauth(username, skip) {
+    if (skip) {
+      return Promise.resolve();
+    }
     return new Promise((resolve, reject) => {
       client.jsonApiCall('POST', '/auth/v2/preauth', { username }, (res) => {
         if (res.stat === 'OK') {

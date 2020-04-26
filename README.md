@@ -47,11 +47,13 @@ A best practice is not to store the keys in your application's code base but in 
 
 This middleware module provides four endpoints, three of which are called from your web application.
 
-### `POST /duo`
+### `POST /duo[?nopreauth]`
 
 This endpoint signs the username using the three Duo keys and returns an object you can pass directly to the `Duo.init()` method. The `username` request property is required.
 
 The optional `redirect` request property is the path to which the client is redirected on a successful Duo verification. If you do not specify the `redirect` property, then a `204` status is returned from the verification action and you will be left on the page with your Duo iframe. This may be useful for debugging but probably not what you want in production.
+
+Before performing the signing action, the user is preauthorized using the Duo [`/preauth`](https://duo.com/docs/authapi#/preauth) endpoint. If the result is `deny`, then a 401 (Unauthorized) status is returned along with a JSON object having the `message` property set to the Duo status message. This behavior can be bypassed by adding the `nopreauth` query parameter.
 
 ```
 POST /duo
@@ -73,7 +75,7 @@ The response is a an object that you can pass directly to `Duo.init()`. It is sh
 }
 ```
 
-### `POST /duo/response`
+### `POST /duo/response[?redirect=<redirect>]`
 
 The `post_action` response path is implemented by this middleware and is called automatically by Duo. On success, a POST to this path will set the `duo` object in the session:
 
@@ -82,6 +84,8 @@ req.session.duo = {
   username: 'joe@example.com'
 };
 ```
+
+If the `redirect` property was set in the original POST request to the `/duo` endpoint, the user is redirected to the specified URL. Otherwise, a 204 (No Content) status is returned.
 
 ### `GET /duo`
 
